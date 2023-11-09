@@ -39,13 +39,14 @@ public class ExampleMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		System.out.println("Working Directory = " + System.getProperty("user.dir"));
 
-
-		System.setProperty("webdriver.gecko.driver", "D:\\QuickAndDirtyTesting\\geckodriver.exe");
+		System.setProperty("webdriver.gecko.driver", "./drivers/geckodriver.exe");
 		System.setProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE,"true");
 		System.setProperty(FirefoxDriver.SystemProperty.BROWSER_LOGFILE,"/dev/null");
 		FirefoxOptions options = new FirefoxOptions();
-		options.setProfile(new FirefoxProfile(new File("D:\\QuickAndDirtyTesting\\xdvcmxgm.BasicProfile")));
+		//options.setProfile(new FirefoxProfile(new File("D:/QuickAndDirtyTesting/xdvcmxgm.BasicProfile")));
+		options.setProfile(new FirefoxProfile(new File("./drivers/xdvcmxgm.BasicProfile")));
 		options.setHeadless(true);
 		driver = new FirefoxDriver(options);
 
@@ -89,7 +90,7 @@ public class ExampleMod implements ModInitializer {
 
 						int returnInt = Integer.parseInt(returnval);
 						if(returnInt < 0){
-							context.getSource().sendMessage(Text.literal("Err.:" + returnInt));
+							context.getSource().sendMessage(Text.literal(errorMessage(returnInt)));
 							return 1;
 						}
 
@@ -151,7 +152,7 @@ public class ExampleMod implements ModInitializer {
 						int returnval = Integer.parseInt(this.blockPrice( itemName, world));
 						if(returnval < 0)
 						{
-							context.getSource().sendMessage(Text.literal("Error:  " + returnval));
+							context.getSource().sendMessage(Text.literal(errorMessage(returnval)));
 							return 1;
 						}
 
@@ -215,7 +216,21 @@ public class ExampleMod implements ModInitializer {
 			e.printStackTrace();
 		}
 		return "";
-
+	}
+	private String errorMessage(int errorCode)
+	{
+		switch (errorCode)
+		{
+			case -1:
+				return "Too few Items";
+			case -2:
+				return "ERROR -> too few arguments";
+			case -3:
+				return "ERROR -> Connection to database failsed";
+			case -4:
+				return "ERROR -> too many entries";
+		}
+		return "ERROR -> Unknown error code";
 	}
 
 }

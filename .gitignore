@@ -1,6 +1,4 @@
-#custom
 
-run/saves/
 
 # gradle
 
@@ -34,7 +32,15 @@ bin/
 
 # fabric
 
-run/
+run/config/
+run/crash-reports/
+run/data/
+run/logs
+run/resourcepacks/
+run/saves
+run/command_history.txt
+run/options.txt
+run/usercache.json
 
 # java
 

@@ -41,12 +41,12 @@ public class ExampleMod implements ModInitializer {
 	public void onInitialize() {
 		System.out.println("Working Directory = " + System.getProperty("user.dir"));
 
-		System.setProperty("webdriver.gecko.driver", "./drivers/geckodriver.exe");
+		System.setProperty("webdriver.gecko.driver", "./mods/drivers/geckodriver.exe");
 		System.setProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE,"true");
 		System.setProperty(FirefoxDriver.SystemProperty.BROWSER_LOGFILE,"/dev/null");
 		FirefoxOptions options = new FirefoxOptions();
 		//options.setProfile(new FirefoxProfile(new File("D:/QuickAndDirtyTesting/xdvcmxgm.BasicProfile")));
-		options.setProfile(new FirefoxProfile(new File("./drivers/xdvcmxgm.BasicProfile")));
+		options.setProfile(new FirefoxProfile(new File("./mods/drivers/xdvcmxgm.BasicProfile")));
 		options.setHeadless(true);
 		driver = new FirefoxDriver(options);
 
@@ -224,11 +224,13 @@ public class ExampleMod implements ModInitializer {
 			case -1:
 				return "Too few Items";
 			case -2:
-				return "ERROR -> too few arguments";
+				return "ERROR -> Connection to database failed";
 			case -3:
-				return "ERROR -> Connection to database failsed";
+				return "Can't sell air";
 			case -4:
 				return "ERROR -> too many entries";
+			case -5:
+				return "ERROR -> too few arguments";
 		}
 		return "ERROR -> Unknown error code";
 	}

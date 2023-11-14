@@ -44,11 +44,7 @@ dependencies {
 
 	// modImplementation "net.fabricmc.fabric-api:fabric-api-deprecated:${project.fabric_version}"
 
-	// Selenium WebDriver
-	implementation 'org.seleniumhq.selenium:selenium-java:3.141.59'
 
-	// Selenium WebDriver for Firefox
-	implementation 'org.seleniumhq.selenium:selenium-firefox-driver:3.141.59'
 
 }
 

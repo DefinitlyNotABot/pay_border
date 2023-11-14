@@ -1,5 +1,6 @@
 package com.example;
 
+import it.unimi.dsi.fastutil.ints.Int2IntSortedMaps;
 import net.fabricmc.api.ModInitializer;
 
 
@@ -16,15 +17,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static net.minecraft.server.command.CommandManager.*;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
-import org.openqa.selenium.firefox.FirefoxOptions;
-import org.openqa.selenium.firefox.FirefoxProfile;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Level;
 
@@ -35,20 +36,15 @@ public class ExampleMod implements ModInitializer {
 	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger("pay_border");
 
-	private WebDriver driver;
+	static final String DB_URL = "localhost";
+	static final String USER = "root";
+	static final String PASS = "";
+
+
 
 	@Override
 	public void onInitialize() {
-		System.out.println("Working Directory = " + System.getProperty("user.dir"));
 
-		System.setProperty("webdriver.gecko.driver", "./mods/drivers/geckodriver.exe");
-		System.setProperty(FirefoxDriver.SystemProperty.DRIVER_USE_MARIONETTE,"true");
-		System.setProperty(FirefoxDriver.SystemProperty.BROWSER_LOGFILE,"/dev/null");
-		FirefoxOptions options = new FirefoxOptions();
-		//options.setProfile(new FirefoxProfile(new File("D:/QuickAndDirtyTesting/xdvcmxgm.BasicProfile")));
-		options.setProfile(new FirefoxProfile(new File("./mods/drivers/xdvcmxgm.BasicProfile")));
-		options.setHeadless(true);
-		driver = new FirefoxDriver(options);
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			dispatcher.register(literal("payborder")
@@ -82,19 +78,18 @@ public class ExampleMod implements ModInitializer {
 
 						System.out.println("Call connection");
 
-						String returnval = (this.acceptBlock( itemName, itemCount, world));
+						int returnval = (this.acceptBlock( itemName, itemCount, world));
 
 						System.out.println("ReturnValue: " + returnval);
-						System.out.println("ReturnValueLen: " + returnval.length());
 
 
-						int returnInt = Integer.parseInt(returnval);
+						int returnInt = returnval;
 						if(returnInt < 0){
 							context.getSource().sendMessage(Text.literal(errorMessage(returnInt)));
 							return 1;
 						}
 
-						int count = (int)Math.pow(2, returnInt);
+						int count = returnInt;
 						// Iterate through the player's inventory
 						for (int i = 0; i < inventory.size(); i++) {
 							ItemStack stack = inventory.getStack(i);
@@ -149,7 +144,7 @@ public class ExampleMod implements ModInitializer {
 						world = world.substring(0, world.indexOf("]"));
 
 
-						int returnval = Integer.parseInt(this.blockPrice( itemName, world));
+						int returnval = this.blockPrice( itemName, world);
 						if(returnval < 0)
 						{
 							context.getSource().sendMessage(Text.literal(errorMessage(returnval)));
@@ -164,58 +159,90 @@ public class ExampleMod implements ModInitializer {
 
 		});
 	}
-	private String acceptBlock( String block, int amount, String world)
+	private int acceptBlock( String block, int amount, String world)
 	{
-		try{
 
+		try {
+			// Reading
+			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			Map<String, Integer> dictionary = new HashMap<>();
 
-			// Define the API endpoint URL
-			String apiUrl = "http://payborder.free.nf/index.php";
-			apiUrl += "?block=" + block;
-			apiUrl += "&amount=" + amount;
-			apiUrl += "&worldname=" + world;
+			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
+				String line;
 
-			driver.get(apiUrl);
-			List<WebElement> textElements = driver.findElements(By.tagName("body"));
+				while ((line = reader.readLine()) != null) {
+					String[] values = line.split(",");
+					dictionary.put(values[0], Integer.parseInt(values[1]));
+				}
+			}
+			if(!dictionary.containsKey(block)){
+				System.out.println("DHIgviwrdhgv");
+			}
+			int count = dictionary.getOrDefault(block, 0);
+			int price = (int) Math.pow(2, count);
 
-			StringBuilder entirePageText = new StringBuilder();
+			if (price > amount) {
+				return -1;
+			}
+			System.out.println(dictionary);
+			// Writing
+			try (FileWriter writer = new FileWriter(csvFilePath, false)) {
+				// Write header (if needed)
+				dictionary.forEach((key, value) -> {
+					System.out.print(key + "\n" + block + " -> ");
+					try {
+						if (key.equals(block)) {
+							System.out.println("DHIgviwrdhgv ++++++++++++++++++++++");
 
-			for (WebElement element : textElements) {
-				entirePageText.append(element.getText()).append(" ");
+								writer.write(key + "," + (value + 1) + "\n");
+
+						}else {
+							System.out.println("DHIgviwrdhgv -------------------");
+							writer.write(key + "," + (value) + "\n");
+						}
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+
+				});
+				writer.flush(); // Add this line
 			}
 
-
-			return entirePageText.toString().replaceAll("\\s+","");
-		}catch (Exception e){
+			return price;
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
 			System.out.println("in catch");
 			e.printStackTrace();
 		}
-		return "";
+
+		return -2;
 	}
 
-	private String blockPrice(String block, String world)
+	private int blockPrice(String block, String world)
 	{
-		try{
+		try {
+			// Reading
+			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			Map<String, Integer> dictionary = new HashMap<>();
 
-			// Define the API endpoint URL
-			String apiUrl = "http://payborder.free.nf/price.php";
-			apiUrl += "?block=" + block;
-			apiUrl += "&worldname=" + world;
+			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
+				String line;
 
-			driver.get(apiUrl);
-			List<WebElement> textElements = driver.findElements(By.tagName("body"));
-
-			StringBuilder entirePageText = new StringBuilder();
-
-			for (WebElement element : textElements) {
-				entirePageText.append(element.getText()).append(" ");
+				while ((line = reader.readLine()) != null) {
+					String[] values = line.split(",");
+					dictionary.put(values[0], Integer.parseInt(values[1]));
+				}
 			}
+			int count = dictionary.getOrDefault(block, 0);
+			int price = (int) Math.pow(2, count);
+			return price;
 
-			return entirePageText.toString().replaceAll("\\s+","");
-		}catch (Exception e){
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return "";
+
+		return -2;
 	}
 	private String errorMessage(int errorCode)
 	{

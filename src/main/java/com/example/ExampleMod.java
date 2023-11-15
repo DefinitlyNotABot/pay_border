@@ -73,7 +73,7 @@ public class ExampleMod implements ModInitializer {
 							}
 						}
 						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
-						
+
 						world = world.substring(world.indexOf("[") + 1);
 						world = world.substring(0, world.indexOf("]"));
 
@@ -140,7 +140,7 @@ public class ExampleMod implements ModInitializer {
 
 
 						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
-						world = world.replaceAll(" ", "_");
+						
 						world = world.substring(world.indexOf("[") + 1);
 						world = world.substring(0, world.indexOf("]"));
 

@@ -13,6 +13,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.world.border.WorldBorder;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static net.minecraft.server.command.CommandManager.*;
@@ -72,7 +73,7 @@ public class ExampleMod implements ModInitializer {
 							}
 						}
 						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
-						world = world.replaceAll(" ", "_");
+						
 						world = world.substring(world.indexOf("[") + 1);
 						world = world.substring(0, world.indexOf("]"));
 
@@ -163,27 +164,13 @@ public class ExampleMod implements ModInitializer {
 	{
 
 		try {
-			// Reading
 			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
-			Map<String, Integer> dictionary = new HashMap<>();
-			File file = new File(csvFilePath);
+			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-			if (!file.exists()) {
-				// Create the file if it doesn't exist
-				if (!file.createNewFile()) {
-					System.out.println("Failed to create the file: " + csvFilePath);
-					return -2; // Or handle the error in an appropriate way
-				}
+            if(dictionary == null){
+				return -2;
 			}
 
-			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
-				String line;
-
-				while ((line = reader.readLine()) != null) {
-					String[] values = line.split(",");
-					dictionary.put(values[0], Integer.parseInt(values[1]));
-				}
-			}
 			if(!dictionary.containsKey(block)){
 				dictionary.put(block, 0);
 			}
@@ -193,18 +180,19 @@ public class ExampleMod implements ModInitializer {
 			if (price > amount) {
 				return -1;
 			}
-			System.out.println(dictionary);
+
 			// Writing
 			try (FileWriter writer = new FileWriter(csvFilePath, false)) {
 				// Write header (if needed)
 				dictionary.forEach((key, value) -> {
-					System.out.print(key + "\n" + block + " -> ");
+
 					try {
 						if (key.equals(block)) {
 								writer.write(key + "," + (value + 1) + "\n");
-						}else {
-							writer.write(key + "," + (value) + "\n");
+								return;
 						}
+						writer.write(key + "," + (value) + "\n");
+
 					} catch (IOException e) {
 						throw new RuntimeException(e);
 					}
@@ -228,15 +216,33 @@ public class ExampleMod implements ModInitializer {
 		try {
 			// Reading
 			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
-			Map<String, Integer> dictionary = new HashMap<>();
+			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
+			int count = dictionary.getOrDefault(block, 0);
+			int price = (int) Math.pow(2, count);
+			return price;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return -2;
+	}
+
+	private @Nullable Map<String, Integer> ReadFile(String csvFilePath)
+	{
+		try{
+			Map<String, Integer> dictionary = new HashMap<>();
+			System.out.println("File: " + csvFilePath);
 			File file = new File(csvFilePath);
 
 			if (!file.exists()) {
 				// Create the file if it doesn't exist
-				if (!file.createNewFile()) {
+				if (file.createNewFile()) {
+					System.out.println("Created File: " + csvFilePath);
+				}else{
 					System.out.println("Failed to create the file: " + csvFilePath);
-					return -2; // Or handle the error in an appropriate way
+					return null; // Or handle the error in an appropriate way
 				}
 			}
 
@@ -249,17 +255,11 @@ public class ExampleMod implements ModInitializer {
 				}
 			}
 
-
-
-			int count = dictionary.getOrDefault(block, 0);
-			int price = (int) Math.pow(2, count);
-			return price;
-
-		} catch (Exception e) {
+			return dictionary;
+		}catch (Exception e){
 			e.printStackTrace();
 		}
-
-		return -2;
+		return null;
 	}
 	private String errorMessage(int errorCode)
 	{

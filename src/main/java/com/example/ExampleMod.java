@@ -166,7 +166,7 @@ public class ExampleMod implements ModInitializer {
 			// Reading
 			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
 			Map<String, Integer> dictionary = new HashMap<>();
-
+			System.out.println(csvFilePath);
 			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
 				String line;
 
@@ -176,7 +176,7 @@ public class ExampleMod implements ModInitializer {
 				}
 			}
 			if(!dictionary.containsKey(block)){
-				System.out.println("DHIgviwrdhgv");
+				dictionary.put(block, 0);
 			}
 			int count = dictionary.getOrDefault(block, 0);
 			int price = (int) Math.pow(2, count);

@@ -151,7 +151,7 @@ public class ExampleMod implements ModInitializer {
 							return 1;
 						}
 
-						context.getSource().sendMessage(Text.literal("Price:  " + (int)Math.pow(2, (returnval))));
+						context.getSource().sendMessage(Text.literal("Price:  " + returnval));
 
 						return 0;
 					})
@@ -166,7 +166,16 @@ public class ExampleMod implements ModInitializer {
 			// Reading
 			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
 			Map<String, Integer> dictionary = new HashMap<>();
-			System.out.println(csvFilePath);
+			File file = new File(csvFilePath);
+
+			if (!file.exists()) {
+				// Create the file if it doesn't exist
+				if (!file.createNewFile()) {
+					System.out.println("Failed to create the file: " + csvFilePath);
+					return -2; // Or handle the error in an appropriate way
+				}
+			}
+
 			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
 				String line;
 
@@ -192,12 +201,8 @@ public class ExampleMod implements ModInitializer {
 					System.out.print(key + "\n" + block + " -> ");
 					try {
 						if (key.equals(block)) {
-							System.out.println("DHIgviwrdhgv ++++++++++++++++++++++");
-
 								writer.write(key + "," + (value + 1) + "\n");
-
 						}else {
-							System.out.println("DHIgviwrdhgv -------------------");
 							writer.write(key + "," + (value) + "\n");
 						}
 					} catch (IOException e) {
@@ -212,7 +217,6 @@ public class ExampleMod implements ModInitializer {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (Exception e) {
-			System.out.println("in catch");
 			e.printStackTrace();
 		}
 
@@ -226,6 +230,16 @@ public class ExampleMod implements ModInitializer {
 			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
 			Map<String, Integer> dictionary = new HashMap<>();
 
+			File file = new File(csvFilePath);
+
+			if (!file.exists()) {
+				// Create the file if it doesn't exist
+				if (!file.createNewFile()) {
+					System.out.println("Failed to create the file: " + csvFilePath);
+					return -2; // Or handle the error in an appropriate way
+				}
+			}
+
 			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
 				String line;
 
@@ -234,6 +248,9 @@ public class ExampleMod implements ModInitializer {
 					dictionary.put(values[0], Integer.parseInt(values[1]));
 				}
 			}
+
+
+
 			int count = dictionary.getOrDefault(block, 0);
 			int price = (int) Math.pow(2, count);
 			return price;

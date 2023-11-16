@@ -12,7 +12,6 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.border.WorldBorder;
 import org.jetbrains.annotations.NotNull;
@@ -95,7 +94,12 @@ public class ExampleMod implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			dispatcher.register(literal("init_payborder")
-					.executes(this::init_paybrder)
+					.executes(this::init_payborder)
+			);
+		});
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			dispatcher.register(literal("update_version")
+					.executes(this::update_version)
 			);
 		});
 	}
@@ -190,18 +194,19 @@ public class ExampleMod implements ModInitializer {
 
 
 		int price = 0;
-		try {
-			// Reading
-			String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
-			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-            assert dictionary != null;
-            int count = dictionary.getOrDefault(itemName, 0);
-			price = (int) Math.pow(2, count);
+		// Reading
+		String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
+		Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-		} catch (Exception e) {
-			e.printStackTrace();
+		if(dictionary == null){
+			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
+			return -2;
 		}
+		int count = dictionary.getOrDefault(itemName, 0);
+		price = (int) Math.pow(2, count);
+
+
 		if(price < 0)
 		{
 			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
@@ -213,7 +218,7 @@ public class ExampleMod implements ModInitializer {
 		return 0;
 	}
 
-	private int init_paybrder(CommandContext<ServerCommandSource> context) {
+	private int init_payborder(CommandContext<ServerCommandSource> context) {
 
 		ServerCommandSource source = context.getSource();
 		ServerPlayerEntity player = source.getPlayer();
@@ -262,6 +267,65 @@ public class ExampleMod implements ModInitializer {
 		return 0;
 	}
 
+	private int update_version(CommandContext<ServerCommandSource> context){
+		ServerCommandSource source = context.getSource();
+		ServerPlayerEntity player = source.getPlayer();
+		assert player != null;
+
+		String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+		world = world.substring(world.indexOf("[") + 1);
+		world = world.substring(0, world.indexOf("]"));
+		String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+		File file = new File(csvFilePath);
+		if(!file.exists()){
+			context.getSource().sendMessage(Text.literal("ERROR: could not find file"));
+			return 0;
+		}
+
+
+		String folderFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder_data";
+
+		file = new File(folderFilePath);
+
+		if (file.exists()) {
+			context.getSource().sendMessage(Text.literal("Already Initialized"));
+			return 0;
+		}
+		if (!file.mkdir()) {
+			System.out.println("Failed to create directory!");
+			return -1;
+		}
+		String blockFilePath = filepath.BLOCK_USAGES.getFile(world);
+		Map<String, Integer> dictionary = new HashMap<>();
+
+		createFile(blockFilePath);
+		writeFile(blockFilePath, dictionary);
+
+		String settingsFilePath = filepath.SETTINGS.getFile(world);
+		dictionary.put(settings.DUFFUCULTY_LEVEL.toString(), 2);
+		dictionary.put(settings.MAX_USES_PER_ITEM.toString(), 10);
+
+		createFile(settingsFilePath);
+		writeFile(settingsFilePath, dictionary);
+
+
+
+		dictionary = ReadFile(csvFilePath);
+		if(dictionary == null){
+			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
+			return -2;
+		}
+		blockFilePath = filepath.BLOCK_USAGES.getFile(world);
+		writeFile(blockFilePath, dictionary);
+
+		csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+		file = new File(csvFilePath);
+		file.delete();
+
+		context.getSource().sendMessage(Text.literal("Done! Enjoy the new functionality"));
+		return 0;
+	}
+
 
 
 	private @Nullable Map<String, Integer> ReadFile(String filePath)
@@ -281,9 +345,8 @@ public class ExampleMod implements ModInitializer {
 
 			return dictionary;
 		}catch (Exception e){
-			e.printStackTrace();
+			return null;
 		}
-		return null;
 	}
 
 	private void writeFile(String filePath, @NotNull Map<String, Integer> dictionary)

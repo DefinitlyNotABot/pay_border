@@ -12,7 +12,10 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.Vec2f;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.border.WorldBorder;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +38,42 @@ public class ExampleMod implements ModInitializer {
 	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger("pay_border");
 
+	private enum settings {
+		DUFFUCULTY_LEVEL("difficulty_level"),
+		MAX_USES_PER_ITEM("max_uses_per_item")
+		;
 
+		private final String text;
+		settings(final String text) {
+			this.text = text;
+		}
+		@Override
+		public String toString() {
+			return text;
+		}
+		public boolean equals(String s){
+			return this.text.equals(s);
+		}
+	}
+
+	private enum filepath{
+		SETTINGS("settings.csv"),
+		BLOCK_USAGES("payborder.csv"),
+		DIR_IN_WORLD("payborder_data")
+		;
+
+		private final String text;
+		filepath(final String text) {
+			this.text = text;
+		}
+
+		public String getFile(String worldname) {
+			return System.getProperty("user.dir") + "\\saves\\" + worldname + "\\payborder_data\\" + text;
+		}
+		public boolean equals(String s){
+			return this.text.equals(s);
+		}
+	}
 
 	@Override
 	public void onInitialize() {
@@ -53,7 +91,12 @@ public class ExampleMod implements ModInitializer {
 			dispatcher.register(literal("price")
 					.executes(this::price)
 			);
+		});
 
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			dispatcher.register(literal("init_payborder")
+					.executes(this::init_paybrder)
+			);
 		});
 	}
 
@@ -81,7 +124,7 @@ public class ExampleMod implements ModInitializer {
 
 		int price=0;
 		try {
-			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
 			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
 			if(dictionary == null){
@@ -99,27 +142,9 @@ public class ExampleMod implements ModInitializer {
 				context.getSource().sendMessage(Text.literal(errorMessage(-1)));
 				return -1;
 			}
-
+			dictionary.put(itemName, dictionary.get(itemName)+1);
 			// Writing
-			try (FileWriter writer = new FileWriter(csvFilePath, false)) {
-				// Write header (if needed)
-				String finalItemName = itemName;
-				dictionary.forEach((key, value) -> {
-
-					try {
-						if (key.equals(finalItemName)) {
-							writer.write(key + "," + (value + 1) + "\n");
-							return;
-						}
-						writer.write(key + "," + (value) + "\n");
-
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
-
-				});
-				writer.flush(); // Add this line
-			}
+			writeFile(csvFilePath, dictionary);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -167,7 +192,7 @@ public class ExampleMod implements ModInitializer {
 		int price = 0;
 		try {
 			// Reading
-			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
 			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
             assert dictionary != null;
@@ -188,26 +213,61 @@ public class ExampleMod implements ModInitializer {
 		return 0;
 	}
 
+	private int init_paybrder(CommandContext<ServerCommandSource> context) {
+
+		ServerCommandSource source = context.getSource();
+		ServerPlayerEntity player = source.getPlayer();
+		assert player != null;
+
+		String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+		world = world.substring(world.indexOf("[") + 1);
+		world = world.substring(0, world.indexOf("]"));
 
 
-	private @Nullable Map<String, Integer> ReadFile(String csvFilePath)
+		String folderFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder_data";
+
+		File file = new File(folderFilePath);
+
+		if (file.exists()) {
+			context.getSource().sendMessage(Text.literal("Already Initialized"));
+			return 0;
+		}
+		if (!file.mkdir()) {
+			System.out.println("Failed to create directory!");
+			return -1;
+		}
+		String blockFilePath = filepath.BLOCK_USAGES.getFile(world);
+		Map<String, Integer> dictionary = new HashMap<>();
+
+		writeFile(blockFilePath, dictionary);
+		String settingsFilePath = filepath.SETTINGS.getFile(world);
+		dictionary.put(settings.DUFFUCULTY_LEVEL.toString(), 2);
+		dictionary.put(settings.MAX_USES_PER_ITEM.toString(), 10);
+		writeFile(settingsFilePath, dictionary);
+
+		ServerWorld serverWorld = player.getServer().getOverworld();
+		WorldBorder worldBorder = serverWorld.getWorldBorder();
+		worldBorder.setSize(1);
+
+		Vec3d pos = player.getPos();
+		worldBorder.setCenter(
+				((int)pos.x) + (pos.x > 0 ? 0.5f : -0.5f),
+				((int)pos.z) + (pos.z > 0 ? 0.5f : -0.5f));
+
+		context.getSource().sendMessage(Text.literal("Done"));
+		return 0;
+	}
+
+
+
+	private @Nullable Map<String, Integer> ReadFile(String filePath)
 	{
+		createFile(filePath);
 		try{
 			Map<String, Integer> dictionary = new HashMap<>();
-			System.out.println("File: " + csvFilePath);
-			File file = new File(csvFilePath);
+			System.out.println("File: " + filePath);
 
-			if (!file.exists()) {
-				// Create the file if it doesn't exist
-				if (file.createNewFile()) {
-					System.out.println("Created File: " + csvFilePath);
-				}else{
-					System.out.println("Failed to create the file: " + csvFilePath);
-					return null; // Or handle the error in an appropriate way
-				}
-			}
-
-			try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
+			try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
 				String line;
 
 				while ((line = reader.readLine()) != null) {
@@ -222,6 +282,46 @@ public class ExampleMod implements ModInitializer {
 		}
 		return null;
 	}
+
+	private void writeFile(String filePath, @NotNull Map<String, Integer> dictionary)
+	{
+		createFile(filePath);
+
+		try (FileWriter writer = new FileWriter(filePath, false)) {
+			// Write header (if needed)
+			dictionary.forEach((key, value) -> {
+				try {
+					writer.write(key + "," + (value) + "\n");
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+
+			});
+			writer.flush(); // Add this line
+		} catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+	private void createFile(String filePath) {
+		File file = new File(filePath);
+		try{
+			if (file.exists()) {
+				return;
+			}
+			if (file.createNewFile()) {
+				System.out.println("Created File: " + filePath);
+			}else{
+				System.out.println("Failed to create the file: " + filePath);
+				throw new Exception("Error creating file");
+			}
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
+	}
+
+
 	private String errorMessage(int errorCode)
 	{
         return switch (errorCode) {

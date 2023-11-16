@@ -1,5 +1,6 @@
 package com.example;
 
+import com.mojang.brigadier.context.CommandContext;
 import it.unimi.dsi.fastutil.ints.Int2IntSortedMaps;
 import net.fabricmc.api.ModInitializer;
 
@@ -48,118 +49,102 @@ public class ExampleMod implements ModInitializer {
 
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			// For versions below 1.19, use ''new LiteralText''.
 			dispatcher.register(literal("payborder")
-					.executes(context -> {
-						// For versions below 1.19, use ''new LiteralText''.
-						ServerCommandSource source = context.getSource();
-
-						ServerPlayerEntity player = source.getPlayer();
-
-						assert player != null;
-						PlayerInventory inventory = player.getInventory();
-
-						Item item = inventory.getMainHandStack().getItem();
-
-						String itemName = item.getTranslationKey();
-
-						itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
-
-						int itemCount = 0;
-
-
-						for (ItemStack stack : inventory.main) {
-							if (stack.getItem() == item) {
-								itemCount += stack.getCount();
-							}
-						}
-						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
-
-						world = world.substring(world.indexOf("[") + 1);
-						world = world.substring(0, world.indexOf("]"));
-
-						System.out.println("Call connection");
-
-						int returnval = (this.acceptBlock( itemName, itemCount, world));
-
-						System.out.println("ReturnValue: " + returnval);
-
-
-						int returnInt = returnval;
-						if(returnInt < 0){
-							context.getSource().sendMessage(Text.literal(errorMessage(returnInt)));
-							return 1;
-						}
-
-						int count = returnInt;
-						// Iterate through the player's inventory
-						for (int i = 0; i < inventory.size(); i++) {
-							ItemStack stack = inventory.getStack(i);
-							if (stack.getItem() == item) {
-								int itemsToRemove = Math.min(count, stack.getCount());
-								stack.decrement(itemsToRemove);
-								inventory.setStack(i, stack);
-								count -= itemsToRemove;
-								if (count <= 0) {
-									break;
-								}
-							}
-						}
-
-						ServerWorld serverWorld = player.getServer().getOverworld(); // You can use other dimensions if needed
-
-						// Get the world border for the server world
-						WorldBorder worldBorder = serverWorld.getWorldBorder();
-
-						// Extend the world border by 1 block
-						double newSize = worldBorder.getSize() + 1.0; // Adding 2.0 to extend it by 1 block on each side
-
-						// Set the new size for the world border
-						worldBorder.setSize(newSize);
-
-						context.getSource().sendMessage(Text.literal("new size: " + newSize));
-
-						return 0;
-					})
+					.executes(this::payborder)
 			);
 
 		});
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			dispatcher.register(literal("price")
-					.executes(context -> {
-
-						ServerCommandSource source = context.getSource();
-
-						ServerPlayerEntity player = source.getPlayer();
-						assert player != null;
-						PlayerInventory inventory = player.getInventory();
-						Item item = inventory.getMainHandStack().getItem();
-						String itemName = item.getTranslationKey();
-
-						itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
-
-
-						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
-						
-						world = world.substring(world.indexOf("[") + 1);
-						world = world.substring(0, world.indexOf("]"));
-
-
-						int returnval = this.blockPrice( itemName, world);
-						if(returnval < 0)
-						{
-							context.getSource().sendMessage(Text.literal(errorMessage(returnval)));
-							return 1;
-						}
-
-						context.getSource().sendMessage(Text.literal("Price:  " + returnval));
-
-						return 0;
-					})
+					.executes(this::price)
 			);
 
 		});
 	}
+
+	private int payborder(CommandContext<ServerCommandSource> context) {
+
+		ServerCommandSource source = context.getSource();
+		ServerPlayerEntity player = source.getPlayer();
+		assert player != null;
+		PlayerInventory inventory = player.getInventory();
+
+		Item item = inventory.getMainHandStack().getItem();
+		String itemName = item.getTranslationKey();
+		itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
+
+		int itemCount = 0;
+
+		for (ItemStack stack : inventory.main) {
+			if (stack.getItem() != item)continue;
+			itemCount += stack.getCount();
+		}
+
+		String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+		world = world.substring(world.indexOf("[") + 1);
+		world = world.substring(0, world.indexOf("]"));
+
+
+		int returnInt = this.acceptBlock( itemName, itemCount, world);
+
+		if(returnInt < 0){
+			context.getSource().sendMessage(Text.literal(errorMessage(returnInt)));
+			return 1;
+		}
+
+		int count = returnInt;
+
+		for (int i = 0; i < inventory.size(); i++) {
+			ItemStack stack = inventory.getStack(i);
+			if (stack.getItem() != item) continue;
+			int itemsToRemove = Math.min(count, stack.getCount());
+			stack.decrement(itemsToRemove);
+			inventory.setStack(i, stack);
+			if ((count-= itemsToRemove) <= 0) {
+				break;
+			}
+		}
+
+		ServerWorld serverWorld = player.getServer().getOverworld();
+		WorldBorder worldBorder = serverWorld.getWorldBorder();
+		double newSize = worldBorder.getSize() + 1.0;
+		worldBorder.setSize(newSize);
+
+		context.getSource().sendMessage(Text.literal("new size: " + newSize));
+
+		return 0;
+	}
+
+	private int price(CommandContext<ServerCommandSource> context) {
+
+		ServerCommandSource source = context.getSource();
+		ServerPlayerEntity player = source.getPlayer();
+		assert player != null;
+		PlayerInventory inventory = player.getInventory();
+		Item item = inventory.getMainHandStack().getItem();
+		String itemName = item.getTranslationKey();
+
+		itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
+
+		String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+		world = world.substring(world.indexOf("[") + 1);
+		world = world.substring(0, world.indexOf("]"));
+
+
+		int returnval = this.blockPrice( itemName, world);
+		if(returnval < 0)
+		{
+			context.getSource().sendMessage(Text.literal(errorMessage(returnval)));
+			return 1;
+		}
+
+		context.getSource().sendMessage(Text.literal("Price:  " + returnval));
+
+		return 0;
+	}
+
 	private int acceptBlock( String block, int amount, String world)
 	{
 

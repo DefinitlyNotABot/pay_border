@@ -239,10 +239,14 @@ public class ExampleMod implements ModInitializer {
 		String blockFilePath = filepath.BLOCK_USAGES.getFile(world);
 		Map<String, Integer> dictionary = new HashMap<>();
 
+		createFile(blockFilePath);
 		writeFile(blockFilePath, dictionary);
+
 		String settingsFilePath = filepath.SETTINGS.getFile(world);
 		dictionary.put(settings.DUFFUCULTY_LEVEL.toString(), 2);
 		dictionary.put(settings.MAX_USES_PER_ITEM.toString(), 10);
+
+		createFile(settingsFilePath);
 		writeFile(settingsFilePath, dictionary);
 
 		ServerWorld serverWorld = player.getServer().getOverworld();
@@ -262,7 +266,6 @@ public class ExampleMod implements ModInitializer {
 
 	private @Nullable Map<String, Integer> ReadFile(String filePath)
 	{
-		createFile(filePath);
 		try{
 			Map<String, Integer> dictionary = new HashMap<>();
 			System.out.println("File: " + filePath);
@@ -285,7 +288,6 @@ public class ExampleMod implements ModInitializer {
 
 	private void writeFile(String filePath, @NotNull Map<String, Integer> dictionary)
 	{
-		createFile(filePath);
 
 		try (FileWriter writer = new FileWriter(filePath, false)) {
 			// Write header (if needed)

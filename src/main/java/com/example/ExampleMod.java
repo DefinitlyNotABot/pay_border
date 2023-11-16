@@ -1,6 +1,5 @@
 package com.example;
 
-import com.mojang.brigadier.context.CommandContext;
 import it.unimi.dsi.fastutil.ints.Int2IntSortedMaps;
 import net.fabricmc.api.ModInitializer;
 
@@ -49,83 +48,148 @@ public class ExampleMod implements ModInitializer {
 
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-			// For versions below 1.19, use ''new LiteralText''.
 			dispatcher.register(literal("payborder")
-					.executes(this::payborder)
+					.executes(context -> {
+						// For versions below 1.19, use ''new LiteralText''.
+						ServerCommandSource source = context.getSource();
+
+						ServerPlayerEntity player = source.getPlayer();
+
+						assert player != null;
+						PlayerInventory inventory = player.getInventory();
+
+						Item item = inventory.getMainHandStack().getItem();
+
+						String itemName = item.getTranslationKey();
+
+						itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
+
+						int itemCount = 0;
+
+
+						for (ItemStack stack : inventory.main) {
+							if (stack.getItem() == item) {
+								itemCount += stack.getCount();
+							}
+						}
+						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+
+						world = world.substring(world.indexOf("[") + 1);
+						world = world.substring(0, world.indexOf("]"));
+
+						System.out.println("Call connection");
+
+						int returnval = (this.acceptBlock( itemName, itemCount, world));
+
+						System.out.println("ReturnValue: " + returnval);
+
+
+						int returnInt = returnval;
+						if(returnInt < 0){
+							context.getSource().sendMessage(Text.literal(errorMessage(returnInt)));
+							return 1;
+						}
+
+						int count = returnInt;
+						// Iterate through the player's inventory
+						for (int i = 0; i < inventory.size(); i++) {
+							ItemStack stack = inventory.getStack(i);
+							if (stack.getItem() == item) {
+								int itemsToRemove = Math.min(count, stack.getCount());
+								stack.decrement(itemsToRemove);
+								inventory.setStack(i, stack);
+								count -= itemsToRemove;
+								if (count <= 0) {
+									break;
+								}
+							}
+						}
+
+						ServerWorld serverWorld = player.getServer().getOverworld(); // You can use other dimensions if needed
+
+						// Get the world border for the server world
+						WorldBorder worldBorder = serverWorld.getWorldBorder();
+
+						// Extend the world border by 1 block
+						double newSize = worldBorder.getSize() + 1.0; // Adding 2.0 to extend it by 1 block on each side
+
+						// Set the new size for the world border
+						worldBorder.setSize(newSize);
+
+						context.getSource().sendMessage(Text.literal("new size: " + newSize));
+
+						return 0;
+					})
 			);
 
 		});
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			dispatcher.register(literal("price")
-					.executes(this::price)
-			);
+					.executes(context -> {
 
-		});
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-			dispatcher.register(literal("initPayborder")
-					.executes(this::initPayborder)
+						ServerCommandSource source = context.getSource();
+
+						ServerPlayerEntity player = source.getPlayer();
+						assert player != null;
+						PlayerInventory inventory = player.getInventory();
+						Item item = inventory.getMainHandStack().getItem();
+						String itemName = item.getTranslationKey();
+
+						itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
+
+
+						String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+						
+						world = world.substring(world.indexOf("[") + 1);
+						world = world.substring(0, world.indexOf("]"));
+
+
+						int returnval = this.blockPrice( itemName, world);
+						if(returnval < 0)
+						{
+							context.getSource().sendMessage(Text.literal(errorMessage(returnval)));
+							return 1;
+						}
+
+						context.getSource().sendMessage(Text.literal("Price:  " + returnval));
+
+						return 0;
+					})
 			);
 
 		});
 	}
-	private int payborder(CommandContext<ServerCommandSource> context) {
-		ServerCommandSource source = context.getSource();
-
-		ServerPlayerEntity player = source.getPlayer();
-
-		assert player != null;
-		PlayerInventory inventory = player.getInventory();
-
-		Item item = inventory.getMainHandStack().getItem();
-
-		String itemName = item.getTranslationKey();
-
-		itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
-
-		int itemCount = 0;
-
-
-		for (ItemStack stack : inventory.main) {
-			if (stack.getItem() != item) continue;
-			itemCount += stack.getCount();
-
-		}
-
-
-		String csvFilePath = getFilePath(source);
-
-		int price = 0;
+	private int acceptBlock( String block, int amount, String world)
+	{
 
 		try {
-
+			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
 			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-			if(dictionary == null){
+            if(dictionary == null){
 				return -2;
 			}
 
-			if(!dictionary.containsKey(itemName)){
-				dictionary.put(itemName, 0);
+			if(!dictionary.containsKey(block)){
+				dictionary.put(block, 0);
 			}
-			int count = dictionary.getOrDefault(itemName, 0);
-			price = (int) Math.pow(2, count);
+			int count = dictionary.getOrDefault(block, 0);
+			int price = (int) Math.pow(2, count);
 
-			if (price > itemCount) {
-				context.getSource().sendMessage(Text.literal("Too few Items"));
+			if (price > amount) {
 				return -1;
 			}
 
 			// Writing
 			try (FileWriter writer = new FileWriter(csvFilePath, false)) {
 				// Write header (if needed)
-				String finalItemName = itemName;
 				dictionary.forEach((key, value) -> {
 
 					try {
-						if (key.equals(finalItemName)) {
-							writer.write(key + "," + (value + 1) + "\n");
-							return;
+						if (key.equals(block)) {
+								writer.write(key + "," + (value + 1) + "\n");
+								return;
 						}
 						writer.write(key + "," + (value) + "\n");
 
@@ -138,114 +202,32 @@ public class ExampleMod implements ModInitializer {
 			}
 
 			return price;
+		} catch (IOException e) {
+			e.printStackTrace();
 		} catch (Exception e) {
 			e.printStackTrace();
-			context.getSource().sendMessage(Text.literal("Some error occured"));
-
 		}
 
-		int count = price;
-		// Iterate through the player's inventory
-		for (int i = 0; i < inventory.size(); i++) {
-			ItemStack stack = inventory.getStack(i);
-			if (stack.getItem() != item) continue;
-
-			int itemsToRemove = Math.min(count, stack.getCount());
-			stack.decrement(itemsToRemove);
-			inventory.setStack(i, stack);
-			count -= itemsToRemove;
-
-			if (count <= 0) {
-				break;
-			}
-		}
-
-		ServerWorld serverWorld = player.getServer().getOverworld(); // You can use other dimensions if needed
-
-		// Get the world border for the server world
-		WorldBorder worldBorder = serverWorld.getWorldBorder();
-
-		// Extend the world border by 1 block
-		double newSize = worldBorder.getSize() + 1.0; // Adding 2.0 to extend it by 1 block on each side
-
-		// Set the new size for the world border
-		worldBorder.setSize(newSize);
-
-		context.getSource().sendMessage(Text.literal("new size: " + newSize));
-
-		return 0;
+		return -2;
 	}
 
-	private int price(CommandContext<ServerCommandSource> context) {
-		ServerCommandSource source = context.getSource();
-
-		ServerPlayerEntity player = source.getPlayer();
-		assert player != null;
-		PlayerInventory inventory = player.getInventory();
-		Item item = inventory.getMainHandStack().getItem();
-		String itemName = item.getTranslationKey();
-
-		itemName = itemName.split("\\.")[itemName.split("\\.").length-1];
-
-		int price = 0;
+	private int blockPrice(String block, String world)
+	{
 		try {
+			// Reading
+			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-			Map<String, Integer> dictionary = ReadFile(getFilePath(source));
-
-			int count = dictionary.getOrDefault(itemName, 0);
-			price = (int) Math.pow(2, count);
+			int count = dictionary.getOrDefault(block, 0);
+			int price = (int) Math.pow(2, count);
 			return price;
 
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		context.getSource().sendMessage(Text.literal("Price:  " + price));
 
-		return 0;
+		return -2;
 	}
-
-	private int initPayborder(CommandContext<ServerCommandSource> context) {
-
-		ServerCommandSource source = context.getSource();
-
-		ServerPlayerEntity player = source.getPlayer();
-		assert player != null;
-
-		String csvFilePath = getFilePath(source);
-
-		Map<String, Integer> dictionary = ReadFile(csvFilePath);
-		if(dictionary.size() > 0){
-			context.getSource().sendMessage(Text.literal("Already Initialized"));
-			return -1;
-		}
-
-		var pos = player.getPos();
-
-		float x = ((int)pos.x) + (pos.x>0?0.5f:-0.5f);
-		float z = ((int)pos.z) + (pos.x>0?0.5f:-0.5f);
-
-		ServerWorld serverWorld = player.getServer().getOverworld(); // You can use other dimensions if needed
-
-		// Get the world border for the server world
-		WorldBorder worldBorder = serverWorld.getWorldBorder();
-
-		worldBorder.setCenter(x,z);
-		// Set the new size for the world border
-		worldBorder.setSize(1);
-
-
-		context.getSource().sendMessage(Text.literal("Done"));
-		return 0;
-	}
-
-	private String getFilePath(ServerCommandSource source) {
-		ServerPlayerEntity player = source.getPlayer();
-		String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
-		world = world.substring(world.indexOf("[") + 1);
-		world = world.substring(0, world.indexOf("]"));
-		return System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
-	}
-
 
 	private @Nullable Map<String, Integer> ReadFile(String csvFilePath)
 	{
@@ -279,6 +261,22 @@ public class ExampleMod implements ModInitializer {
 		}
 		return null;
 	}
-
+	private String errorMessage(int errorCode)
+	{
+		switch (errorCode)
+		{
+			case -1:
+				return "Too few Items";
+			case -2:
+				return "ERROR -> Connection to database failed";
+			case -3:
+				return "Can't sell air";
+			case -4:
+				return "ERROR -> too many entries";
+			case -5:
+				return "ERROR -> too few arguments";
+		}
+		return "ERROR -> Unknown error code";
+	}
 
 }

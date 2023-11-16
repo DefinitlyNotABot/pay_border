@@ -1,7 +1,6 @@
 package com.example;
 
 import com.mojang.brigadier.context.CommandContext;
-import it.unimi.dsi.fastutil.ints.Int2IntSortedMaps;
 import net.fabricmc.api.ModInitializer;
 
 
@@ -26,10 +25,8 @@ import java.io.IOException;
 
 import java.io.File;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.logging.Level;
 
 
 public class ExampleMod implements ModInitializer {
@@ -37,10 +34,6 @@ public class ExampleMod implements ModInitializer {
 	// It is considered best practice to use your mod id as the logger's name.
 	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger("pay_border");
-
-	static final String DB_URL = "localhost";
-	static final String USER = "root";
-	static final String PASS = "";
 
 
 
@@ -86,15 +79,53 @@ public class ExampleMod implements ModInitializer {
 		world = world.substring(world.indexOf("[") + 1);
 		world = world.substring(0, world.indexOf("]"));
 
+		int price=0;
+		try {
+			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-		int returnInt = this.acceptBlock( itemName, itemCount, world);
+			if(dictionary == null){
+				context.getSource().sendMessage(Text.literal(errorMessage(-2)));
+				return -2;
+			}
 
-		if(returnInt < 0){
-			context.getSource().sendMessage(Text.literal(errorMessage(returnInt)));
-			return 1;
+			if(!dictionary.containsKey(itemName	)){
+				dictionary.put(itemName, 0);
+			}
+			int count = dictionary.getOrDefault(itemName, 0);
+			price = (int) Math.pow(2, count);
+
+			if (price > itemCount) {
+				context.getSource().sendMessage(Text.literal(errorMessage(-1)));
+				return -1;
+			}
+
+			// Writing
+			try (FileWriter writer = new FileWriter(csvFilePath, false)) {
+				// Write header (if needed)
+				String finalItemName = itemName;
+				dictionary.forEach((key, value) -> {
+
+					try {
+						if (key.equals(finalItemName)) {
+							writer.write(key + "," + (value + 1) + "\n");
+							return;
+						}
+						writer.write(key + "," + (value) + "\n");
+
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+
+				});
+				writer.flush(); // Add this line
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
-		int count = returnInt;
+
+		int count = price;
 
 		for (int i = 0; i < inventory.size(); i++) {
 			ItemStack stack = inventory.getStack(i);
@@ -133,86 +164,31 @@ public class ExampleMod implements ModInitializer {
 		world = world.substring(0, world.indexOf("]"));
 
 
-		int returnval = this.blockPrice( itemName, world);
-		if(returnval < 0)
-		{
-			context.getSource().sendMessage(Text.literal(errorMessage(returnval)));
-			return 1;
-		}
-
-		context.getSource().sendMessage(Text.literal("Price:  " + returnval));
-
-		return 0;
-	}
-
-	private int acceptBlock( String block, int amount, String world)
-	{
-
-		try {
-			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
-			Map<String, Integer> dictionary = ReadFile(csvFilePath);
-
-            if(dictionary == null){
-				return -2;
-			}
-
-			if(!dictionary.containsKey(block)){
-				dictionary.put(block, 0);
-			}
-			int count = dictionary.getOrDefault(block, 0);
-			int price = (int) Math.pow(2, count);
-
-			if (price > amount) {
-				return -1;
-			}
-
-			// Writing
-			try (FileWriter writer = new FileWriter(csvFilePath, false)) {
-				// Write header (if needed)
-				dictionary.forEach((key, value) -> {
-
-					try {
-						if (key.equals(block)) {
-								writer.write(key + "," + (value + 1) + "\n");
-								return;
-						}
-						writer.write(key + "," + (value) + "\n");
-
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
-
-				});
-				writer.flush(); // Add this line
-			}
-
-			return price;
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return -2;
-	}
-
-	private int blockPrice(String block, String world)
-	{
+		int price = 0;
 		try {
 			// Reading
 			String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
 			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-			int count = dictionary.getOrDefault(block, 0);
-			int price = (int) Math.pow(2, count);
-			return price;
+            assert dictionary != null;
+            int count = dictionary.getOrDefault(itemName, 0);
+			price = (int) Math.pow(2, count);
 
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		if(price < 0)
+		{
+			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
+			return 1;
+		}
 
-		return -2;
+		context.getSource().sendMessage(Text.literal("Price:  " + price));
+
+		return 0;
 	}
+
+
 
 	private @Nullable Map<String, Integer> ReadFile(String csvFilePath)
 	{
@@ -248,20 +224,14 @@ public class ExampleMod implements ModInitializer {
 	}
 	private String errorMessage(int errorCode)
 	{
-		switch (errorCode)
-		{
-			case -1:
-				return "Too few Items";
-			case -2:
-				return "ERROR -> Connection to database failed";
-			case -3:
-				return "Can't sell air";
-			case -4:
-				return "ERROR -> too many entries";
-			case -5:
-				return "ERROR -> too few arguments";
-		}
-		return "ERROR -> Unknown error code";
-	}
+        return switch (errorCode) {
+            case -1 -> "Too few Items";
+            case -2 -> "ERROR -> Connection to database failed";
+            case -3 -> "Can't sell air";
+            case -4 -> "ERROR -> too many entries";
+            case -5 -> "ERROR -> too few arguments";
+            default -> "ERROR -> Unknown error code";
+        };
+    }
 
 }

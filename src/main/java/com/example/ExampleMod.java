@@ -102,6 +102,7 @@ public class ExampleMod implements ModInitializer {
 					.executes(this::update_version)
 			);
 		});
+
 	}
 
 	private int payborder(CommandContext<ServerCommandSource> context) {
@@ -126,35 +127,41 @@ public class ExampleMod implements ModInitializer {
 		world = world.substring(world.indexOf("[") + 1);
 		world = world.substring(0, world.indexOf("]"));
 
-		int price=0;
-		try {
-			String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
-			Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-			if(dictionary == null){
-				context.getSource().sendMessage(Text.literal(errorMessage(-2)));
-				return -2;
-			}
 
-			if(!dictionary.containsKey(itemName	)){
-				dictionary.put(itemName, 0);
-			}
-			int count = dictionary.getOrDefault(itemName, 0);
-			price = (int) Math.pow(2, count);
+		String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
+		Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-			if (price > itemCount) {
-				context.getSource().sendMessage(Text.literal(errorMessage(-1)));
-				return -1;
-			}
-			dictionary.put(itemName, dictionary.get(itemName)+1);
-			// Writing
-			writeFile(csvFilePath, dictionary);
-		} catch (Exception e) {
-			e.printStackTrace();
+		String settingsFilePath = filepath.SETTINGS.getFile(world);
+		Map<String, Integer> dictionarySettings = ReadFile(settingsFilePath);
+
+		if(dictionary == null || dictionarySettings == null){
+			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
+			return -2;
 		}
 
+		if(!dictionary.containsKey(itemName	)){
+			dictionary.put(itemName, 0);
+		}
+		int count = dictionary.getOrDefault(itemName, 0);
+		if(count > dictionarySettings.get(settings.MAX_USES_PER_ITEM.toString())){
+			context.getSource().sendMessage(Text.literal(errorMessage(-3)));
+			return -1;
+		}
 
-		int count = price;
+		int price = (int) Math.pow(dictionarySettings.get(settings.DUFFUCULTY_LEVEL.toString()), count);
+
+		if (price > itemCount) {
+			context.getSource().sendMessage(Text.literal(errorMessage(-1)));
+			return -1;
+		}
+		dictionary.put(itemName, dictionary.get(itemName)+1);
+		// Writing
+		writeFile(csvFilePath, dictionary);
+
+
+
+		count = price;
 
 		for (int i = 0; i < inventory.size(); i++) {
 			ItemStack stack = inventory.getStack(i);
@@ -199,12 +206,21 @@ public class ExampleMod implements ModInitializer {
 		String csvFilePath = filepath.BLOCK_USAGES.getFile(world);
 		Map<String, Integer> dictionary = ReadFile(csvFilePath);
 
-		if(dictionary == null){
+		String settingsFilePath = filepath.SETTINGS.getFile(world);
+		Map<String, Integer> dictionarySettings = ReadFile(settingsFilePath);
+
+		if(dictionary == null || dictionarySettings == null){
 			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
 			return -2;
 		}
 		int count = dictionary.getOrDefault(itemName, 0);
-		price = (int) Math.pow(2, count);
+
+		if(count > dictionarySettings.get(settings.MAX_USES_PER_ITEM.toString())){
+			context.getSource().sendMessage(Text.literal(errorMessage(-3)));
+			return -1;
+		}
+
+		price = (int) Math.pow(dictionarySettings.get(settings.DUFFUCULTY_LEVEL.toString()), count);
 
 
 		if(price < 0)
@@ -213,7 +229,7 @@ public class ExampleMod implements ModInitializer {
 			return 1;
 		}
 
-		context.getSource().sendMessage(Text.literal("Price:  " + price));
+		context.getSource().sendMessage(Text.literal("Price:  " + (price<64?price:price/64+" stacks")));
 
 		return 0;
 	}
@@ -391,10 +407,8 @@ public class ExampleMod implements ModInitializer {
 	{
         return switch (errorCode) {
             case -1 -> "Too few Items";
-            case -2 -> "ERROR -> Connection to database failed";
-            case -3 -> "Can't sell air";
-            case -4 -> "ERROR -> too many entries";
-            case -5 -> "ERROR -> too few arguments";
+            case -2 -> "ERROR -> Could not find file";
+            case -3 -> "Max usages reached";
             default -> "ERROR -> Unknown error code";
         };
     }

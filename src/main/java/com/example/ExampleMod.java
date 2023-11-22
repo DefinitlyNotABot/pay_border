@@ -37,9 +37,16 @@ public class ExampleMod implements ModInitializer {
 	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger("pay_border");
 
+	private static final int ModMayorVersion = 1;
+	private static final int ModMidVersion = 0;
+	private static final int ModMinorVersion = 5;
+
 	private enum settings {
 		DUFFUCULTY_LEVEL("difficulty_level"),
-		MAX_USES_PER_ITEM("max_uses_per_item")
+		MAX_USES_PER_ITEM("max_uses_per_item"),
+		MOD_MAYOR_VERSION("mod_mayor_version"),
+		MOD_MID_VERSION("mod_mid_version"),
+		MOD_MINOR_VERSION("mod_minor_version"),
 		;
 
 		private final String text;
@@ -139,7 +146,7 @@ public class ExampleMod implements ModInitializer {
 			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
 			return -2;
 		}
-
+		compareVersions(dictionarySettings, context);
 		if(!dictionary.containsKey(itemName	)){
 			dictionary.put(itemName, 0);
 		}
@@ -213,6 +220,7 @@ public class ExampleMod implements ModInitializer {
 			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
 			return -2;
 		}
+		compareVersions(dictionarySettings, context);
 		int count = dictionary.getOrDefault(itemName, 0);
 
 		if(count > dictionarySettings.get(settings.MAX_USES_PER_ITEM.toString())){
@@ -264,8 +272,12 @@ public class ExampleMod implements ModInitializer {
 		writeFile(blockFilePath, dictionary);
 
 		String settingsFilePath = filepath.SETTINGS.getFile(world);
+		dictionary.put(settings.MOD_MAYOR_VERSION.toString(), ModMayorVersion);
+		dictionary.put(settings.MOD_MID_VERSION.toString(), ModMidVersion);
+		dictionary.put(settings.MOD_MINOR_VERSION.toString(), ModMinorVersion);
 		dictionary.put(settings.DUFFUCULTY_LEVEL.toString(), 2);
 		dictionary.put(settings.MAX_USES_PER_ITEM.toString(), 10);
+
 
 		createFile(settingsFilePath);
 		writeFile(settingsFilePath, dictionary);
@@ -293,54 +305,99 @@ public class ExampleMod implements ModInitializer {
 		world = world.substring(0, world.indexOf("]"));
 		String csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
 		File file = new File(csvFilePath);
-		if(!file.exists()){
-			context.getSource().sendMessage(Text.literal("ERROR: could not find file"));
+		if(file.exists()){
+			String folderFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder_data";
+
+			file = new File(folderFilePath);
+
+			if (file.exists()) {
+				context.getSource().sendMessage(Text.literal("Already Initialized"));
+				return 0;
+			}
+			if (!file.mkdir()) {
+				System.out.println("Failed to create directory!");
+				return -1;
+			}
+			String blockFilePath = filepath.BLOCK_USAGES.getFile(world);
+			Map<String, Integer> dictionary = new HashMap<>();
+
+			createFile(blockFilePath);
+			writeFile(blockFilePath, dictionary);
+
+			String settingsFilePath = filepath.SETTINGS.getFile(world);
+			dictionary.put(settings.DUFFUCULTY_LEVEL.toString(), 2);
+			dictionary.put(settings.MAX_USES_PER_ITEM.toString(), 10);
+
+			createFile(settingsFilePath);
+			writeFile(settingsFilePath, dictionary);
+
+
+
+			dictionary = ReadFile(csvFilePath);
+			if(dictionary == null){
+				context.getSource().sendMessage(Text.literal(errorMessage(-2)));
+				return -2;
+			}
+			blockFilePath = filepath.BLOCK_USAGES.getFile(world);
+			writeFile(blockFilePath, dictionary);
+
+			csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
+			file = new File(csvFilePath);
+			file.delete();
+
+			context.getSource().sendMessage(Text.literal("Done! Enjoy the new functionality"));
 			return 0;
 		}
-
-
-		String folderFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder_data";
-
-		file = new File(folderFilePath);
-
-		if (file.exists()) {
-			context.getSource().sendMessage(Text.literal("Already Initialized"));
-			return 0;
-		}
-		if (!file.mkdir()) {
-			System.out.println("Failed to create directory!");
-			return -1;
-		}
-		String blockFilePath = filepath.BLOCK_USAGES.getFile(world);
-		Map<String, Integer> dictionary = new HashMap<>();
-
-		createFile(blockFilePath);
-		writeFile(blockFilePath, dictionary);
 
 		String settingsFilePath = filepath.SETTINGS.getFile(world);
-		dictionary.put(settings.DUFFUCULTY_LEVEL.toString(), 2);
-		dictionary.put(settings.MAX_USES_PER_ITEM.toString(), 10);
+		Map<String, Integer> dictionarySettings = ReadFile(settingsFilePath);
 
-		createFile(settingsFilePath);
-		writeFile(settingsFilePath, dictionary);
-
-
-
-		dictionary = ReadFile(csvFilePath);
-		if(dictionary == null){
-			context.getSource().sendMessage(Text.literal(errorMessage(-2)));
-			return -2;
+		if(dictionarySettings == null){
+			context.getSource().sendMessage(Text.literal("No mod to update found"));
+			return -1;
 		}
-		blockFilePath = filepath.BLOCK_USAGES.getFile(world);
-		writeFile(blockFilePath, dictionary);
 
-		csvFilePath = System.getProperty("user.dir") + "\\saves\\" + world + "\\payborder.csv";
-		file = new File(csvFilePath);
-		file.delete();
+
+		dictionarySettings.put(settings.MOD_MAYOR_VERSION.toString(), ModMayorVersion);
+		dictionarySettings.put(settings.MOD_MID_VERSION.toString(), ModMidVersion);
+		dictionarySettings.put(settings.MOD_MINOR_VERSION.toString(), ModMinorVersion);
+
+		writeFile(settingsFilePath, dictionarySettings);
 
 		context.getSource().sendMessage(Text.literal("Done! Enjoy the new functionality"));
 		return 0;
 	}
+
+	private void compareVersions(Map<String, Integer> dictionarySettings, CommandContext<ServerCommandSource> context)
+	{
+		String newVer = "Your version is newer than the servers";
+		String oldVer = "Your mod is outdated";
+		if(!dictionarySettings.containsKey(settings.MOD_MAYOR_VERSION.toString())){
+			context.getSource().sendMessage(Text.literal(newVer));
+		}
+		if(dictionarySettings.get(settings.MOD_MAYOR_VERSION.toString()) < ModMayorVersion)
+		{
+			context.getSource().sendMessage(Text.literal(newVer));
+		}else if(dictionarySettings.get(settings.MOD_MAYOR_VERSION.toString()) < ModMayorVersion){
+			context.getSource().sendMessage(Text.literal(oldVer));
+		}
+
+		if(dictionarySettings.get(settings.MOD_MID_VERSION.toString()) < ModMidVersion)
+		{
+			context.getSource().sendMessage(Text.literal(newVer));
+		}else if(dictionarySettings.get(settings.MOD_MID_VERSION.toString()) < ModMidVersion){
+			context.getSource().sendMessage(Text.literal(oldVer));
+		}
+		if(dictionarySettings.get(settings.MOD_MINOR_VERSION.toString()) < ModMinorVersion)
+		{
+			context.getSource().sendMessage(Text.literal(newVer));
+		}else if(dictionarySettings.get(settings.MOD_MINOR_VERSION.toString()) < ModMinorVersion){
+			context.getSource().sendMessage(Text.literal(oldVer));
+		}
+
+	}
+
+
 
 
 

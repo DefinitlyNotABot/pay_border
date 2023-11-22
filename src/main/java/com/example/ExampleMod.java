@@ -27,6 +27,7 @@ import java.io.IOException;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -186,7 +187,13 @@ public class ExampleMod implements ModInitializer {
 		double newSize = worldBorder.getSize() + 1.0;
 		worldBorder.setSize(newSize);
 
-		context.getSource().sendMessage(Text.literal("new size: " + newSize));
+		List<ServerPlayerEntity> playerList = context.getSource().getServer().getPlayerManager().getPlayerList();
+
+		String finalItemName = itemName;
+		String playerName = player.getEntityName();
+		playerList.forEach(player2 -> player2.sendMessage(Text.literal(playerName + " sold " + price + "x " + finalItemName), false));
+		playerList.forEach(player2 -> player2.sendMessage(Text.literal("The worldborder has been increased to: " + newSize), false));
+
 
 		return 0;
 	}
@@ -365,6 +372,7 @@ public class ExampleMod implements ModInitializer {
 		writeFile(settingsFilePath, dictionarySettings);
 
 		context.getSource().sendMessage(Text.literal("Done! Enjoy the new functionality"));
+
 		return 0;
 	}
 

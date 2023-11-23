@@ -147,6 +147,18 @@ public class ExampleMod implements ModInitializer {
 			);
 		});
 
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			dispatcher.register(
+					literal("list_prices")
+							.then(argument("sort_by", StringArgumentType.word())
+									.suggests((context, builder) -> suggestions_sortBy(builder))
+									.then(argument("value", IntegerArgumentType.integer())
+											.executes(this::list_prices)
+									)
+							)
+			);
+		});
+
 	}
 
 	//region Player callable Functions
@@ -507,6 +519,70 @@ public class ExampleMod implements ModInitializer {
 		return 0;
 	}
 
+	private int list_prices(CommandContext<ServerCommandSource> context){
+
+		String setting = StringArgumentType.getString(context, "sort_by");
+
+		ServerCommandSource source = context.getSource();
+		ServerPlayerEntity player = source.getPlayer();
+		assert player != null;
+
+		String world = Objects.requireNonNull(player.getServer()).getOverworld().toString();
+		world = world.substring(world.indexOf("[") + 1);
+		world = world.substring(0, world.indexOf("]"));
+
+
+		String settingsFilePath = filepath.SETTINGS.getFile(world);
+		Map<String, Integer> dictionarySettings = ReadFile(settingsFilePath);
+
+		String useFilePath = filepath.BLOCK_USAGES.getFile(world);
+		Map<String, Integer> dictionaryUse = ReadFile(useFilePath);
+
+        assert dictionaryUse != null;
+        int[] values = new int[dictionaryUse.size()];
+        String[] keys = new String[dictionaryUse.size()];
+		int id = 0;
+		if(setting.equals("sort_by_name_asc") || setting.equals("sort_by_name_desc")){
+			SortedSet<String> keysSorted = new TreeSet<>(dictionaryUse.keySet());
+			for (String key : keysSorted) {
+				double value = dictionarySettings.get(settings.DUFFUCULTY_LEVEL.toString());
+				int price = (int) Math.pow(value/1000, dictionaryUse.get(key));
+				values[id] = price;
+				keys[id++] = key;
+			}
+		}else{
+			Comparator<String> valueComparator = Comparator.comparing(dictionaryUse::get);
+			// Use TreeSet with the custom comparator
+			SortedSet<String> keysSorted = new TreeSet<>(valueComparator.thenComparing(Comparator.naturalOrder()));
+			keysSorted.addAll(dictionaryUse.keySet());
+			// Iterate over the sorted keys
+			for (String key : keysSorted) {
+				double value = dictionarySettings.get(settings.DUFFUCULTY_LEVEL.toString());
+				int price = (int) Math.pow(value/1000, dictionaryUse.get(key));
+				values[id] = price;
+				keys[id++] = key;
+			}
+		}
+		context.getSource().sendMessage(Text.literal("##############################"));
+		context.getSource().sendMessage(Text.literal("#"));
+		context.getSource().sendMessage(Text.literal("# List of prices"));
+		context.getSource().sendMessage(Text.literal("#"));
+		if(setting.endsWith("asc")){
+			for(int i = 0; i < dictionaryUse.size(); i++){
+				context.getSource().sendMessage(Text.literal("# " + keys[i] +  ": " + values[i]));
+			}
+		}else{
+			for(int i = dictionaryUse.size()-1; i >= 0; i--){
+				context.getSource().sendMessage(Text.literal("# " + keys[i] +  ": " + values[i]));
+			}
+		}
+		context.getSource().sendMessage(Text.literal("#"));
+		context.getSource().sendMessage(Text.literal("##############################"));
+
+
+		return 0;
+	}
+
 
 	//endregion
 
@@ -526,6 +602,18 @@ public class ExampleMod implements ModInitializer {
 			}
 			builder.suggest(setting.toString());
 		}
+
+		return builder.buildFuture();
+	}
+
+	private CompletableFuture<Suggestions> suggestions_sortBy(SuggestionsBuilder builder) {
+
+
+		builder.suggest("sort_by_name_asc");
+		builder.suggest("sort_by_name_desc");
+		builder.suggest("sort_by_price_asc");
+		builder.suggest("sort_by_price_desc");
+
 
 		return builder.buildFuture();
 	}

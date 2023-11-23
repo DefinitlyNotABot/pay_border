@@ -152,7 +152,7 @@ public class ExampleMod implements ModInitializer {
 					literal("list_prices")
 							.then(argument("sort_by", StringArgumentType.word())
 									.suggests((context, builder) -> suggestions_sortBy(builder))
-									.then(argument("value", IntegerArgumentType.integer())
+									.then(argument("page", IntegerArgumentType.integer())
 											.executes(this::list_prices)
 									)
 							)
@@ -563,19 +563,31 @@ public class ExampleMod implements ModInitializer {
 				keys[id++] = key;
 			}
 		}
+
+		int sites = (int) Math.ceil(dictionaryUse.size()/8f); //StringArgumentType.getString(context, "setting");
+		int page = IntegerArgumentType.getInteger(context, "page");
+		if(page < 1){
+			page = 1;
+		}
+		if(page > sites){
+			page = sites;
+		}
+
 		context.getSource().sendMessage(Text.literal("##############################"));
 		context.getSource().sendMessage(Text.literal("#"));
-		context.getSource().sendMessage(Text.literal("# List of prices"));
+
 		context.getSource().sendMessage(Text.literal("#"));
 		if(setting.endsWith("asc")){
-			for(int i = 0; i < dictionaryUse.size(); i++){
+			for(int i = (page-1)*8; i < (Math.min(page * 8, dictionaryUse.size())); i++){
 				context.getSource().sendMessage(Text.literal("# " + keys[i] +  ": " + values[i]));
 			}
 		}else{
-			for(int i = dictionaryUse.size()-1; i >= 0; i--){
+			for(int i = (Math.min(page * 8, dictionaryUse.size()-1)); i >= Math.max((page-1), 0); i--){
 				context.getSource().sendMessage(Text.literal("# " + keys[i] +  ": " + values[i]));
 			}
 		}
+		context.getSource().sendMessage(Text.literal("#"));
+		context.getSource().sendMessage(Text.literal("# Page ("+page+"/"+sites + ")"));
 		context.getSource().sendMessage(Text.literal("#"));
 		context.getSource().sendMessage(Text.literal("##############################"));
 

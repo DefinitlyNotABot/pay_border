@@ -40,7 +40,7 @@ public class ExampleMod implements ModInitializer {
 
 	private static final int ModMayorVersion = 1;
 	private static final int ModMidVersion = 0;
-	private static final int ModMinorVersion = 6;
+	private static final int ModMinorVersion = 7;
 
 	private enum settings {
 		DUFFUCULTY_LEVEL("difficulty_level"),
@@ -210,6 +210,7 @@ public class ExampleMod implements ModInitializer {
 
 		if (price > itemCount) {
 			context.getSource().sendMessage(Text.literal(errorMessage(-1)));
+			context.getSource().sendMessage(Text.literal("Price: " + (price<64?price:price/64+" stacks")));
 			return -1;
 		}
 		dictionary.put(itemName, dictionary.get(itemName)+1);
@@ -597,7 +598,7 @@ public class ExampleMod implements ModInitializer {
 		context.getSource().sendMessage(Text.literal("#"));
 
 		for(int i = Math.max((page-1)*8, 0); i < (Math.min(page * 8, dictionaryUse.size())); i++){
-			context.getSource().sendMessage(Text.literal("# " + keys[i] +  ": " + values[i]));
+			context.getSource().sendMessage(Text.literal("# " + keys[i] +  ": " + ((values[i]<64?values[i]:values[i]/64+" stacks"))));
 		}
 
 
